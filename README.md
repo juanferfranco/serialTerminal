@@ -26,3 +26,14 @@ se pintará una letra **A**.
 
 <img src="https://github.com/user-attachments/assets/8b83110b-70d6-4e9c-b4b6-7ead5125f33a" alt="Opciones" width="300">  
 
+## ¿Cómo puedes transmitir datos?
+
+Puedes transmitir datos en foramto de texto y en hexadecimal. Si seleccionas el formato Texto, todos los caracteres que escribas se convertirán 
+a los bytes correspondientes según [esta tabla](https://www.asciitable.com/) y se transmitirán por el puerto serial. Ten en cuenta que al añadir 
+**\r** y/o **\n** podrás transmitir los bytes **0D** (**\r**) y/o **0A** (**\n**) junto con el texto que escribas. Estos caracteres son importantes 
+para marcar el fin de la cadena de texto.
+
+También podrás escribir directamente los bytes que deseas transmitir cambiando el formato a **Hexadecimal**.
+
+Si activas **Echo local**, lo que envíes también se mostrará en el cuadro de texto de recepción de datos.
+
