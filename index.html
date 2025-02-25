@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplicación de Conexión Serial</title>
+  <style>
+    /* Estilos base para body y contenedor */
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+    .container {
+      background-color: white;
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      text-align: center;
+    }
+    /* Estilos para ventana modal */
+    .modal {
+      display: none; 
+      position: fixed;
+      z-index: 100;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: auto;
+      background-color: rgba(0,0,0,0.4);
+    }
+    .modal-content {
+      background-color: #fff;
+      margin: 10% auto;
+      padding: 20px;
+      border-radius: 8px;
+      width: 90%;
+      max-width: 400px;
+      position: relative;
+    }
+    .close {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    /* Botones de cabecera */
+    .header-buttons {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 20px;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      border-radius: 4px;
+      border: none;
+      background-color: #0066cc;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0055aa;
+    }
+    button:disabled {
+      background-color: #cccccc;
+      cursor: not-allowed;
+    }
+    /* Panel de recepción (parte superior) */
+    .receive-panel {
+      margin-bottom: 20px;
+    }
+    .receive-panel textarea {
+      width: 100%;
+      height: 150px;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      resize: none;
+      overflow-y: auto;
+    }
+    /* Panel de transmisión (parte inferior) */
+    .transmit-panel {
+      margin-top: 20px;
+    }
+    .transmit-input {
+      display: flex;
+      margin-bottom: 10px;
+      align-items: flex-start;
+      border: 1px solid #ddd;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .transmit-input > div {
+      margin-right: 30px;
+    }
+    .transmit-input textarea {
+      width: 100%;
+      height: 60px;
+      padding: 10px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      resize: vertical;
+    }
+    .transmit-options {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .error-message {
+      color: red;
+      font-size: 0.9em;
+      display: none;
+    }
+    .send-button {
+      background-color: #0066cc;
+      color: white;
+      cursor: pointer;
+      border: none;
+      padding: 5px 10px;
+    }
+    .remove-transmit {
+      background-color: #cc0000;
+      color: white;
+      cursor: pointer;
+      border: none;
+      padding: 5px 10px;
+      margin-top: 5px;
+    }
+    .add-transmit-button {
+      margin-top: 10px;
+      padding: 8px 12px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .add-transmit-button:hover {
+      background-color: #218838;
+    }
+    .status {
+      font-weight: bold;
+      text-align: center;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .connected {
+      color: green;
+    }
+    .disconnected {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Aplicación de Conexión Serial</h1>
+    <!-- Cabecera con botones para configurar y desconectar -->
+    <div class="header-buttons">
+      <button id="open-config">Configurar Puerto</button>
+      <button id="disconnect-button" disabled>Desconectar</button>
+      <!-- Estado de conexión -->
+      <div class="status disconnected" id="connection-status">Estado: Desconectado</div>
+    </div>
+
+    <!-- Panel de Recepción (parte superior) -->
+    <div class="receive-panel">
+      <h2>Recepción de Datos</h2>
+      <div>
+        <label for="display-mode">Mostrar datos como:</label>
+        <select id="display-mode">
+          <option value="text">Texto</option>
+          <option value="textWithSpecial">Texto + Especiales (HEX)</option>
+          <option value="hex">Todo en HEX</option>
+        </select>
+      </div>
+      <textarea id="received-data" readonly></textarea>
+      <button id="clear-received">Limpiar</button>
+    </div>
+    
+    <!-- Panel de Transmisión (parte inferior) -->
+    <div class="transmit-panel">
+      <h2>Transmisión de Datos</h2>
+      <div id="transmit-container">
+        <div class="transmit-input" id="transmit-input-1">
+          <div style="flex-grow: 1;">
+            <textarea placeholder="Escribe el mensaje a enviar"></textarea>
+            <div class="error-message"></div>
+          </div>
+          <div class="transmit-options">
+            <div>
+              <label>Formato:</label>
+              <select class="format-select">
+                <option value="text">Texto</option>
+                <option value="hex">Hexadecimal</option>
+              </select>
+            </div>
+            <div>
+              <label><input type="checkbox" class="cr-checkbox"> Añadir CR (\r)</label>
+            </div>
+            <div>
+              <label><input type="checkbox" class="lf-checkbox"> Añadir LF (\n)</label>
+            </div>
+            <div>
+              <label><input type="checkbox" class="echo-checkbox"> Echo local</label>
+            </div>
+            <button class="send-button">Enviar</button>
+            <button class="remove-transmit" style="display:none;">Eliminar</button>
+          </div>
+        </div>
+      </div>
+      <button id="add-transmit" class="add-transmit-button">+ Añadir Campo de Transmisión</button>
+    </div>
+  </div>
+  
+  <!-- Modal para Configuración del Puerto -->
+  <div id="config-modal" class="modal">
+    <div class="modal-content">
+      <span class="close" id="close-config-modal">&times;</span>
+      <h2>Configuración del Puerto</h2>
+      <div>
+        <label for="baudrate">Baudrate:</label>
+        <select id="baudrate">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600">57600</option>
+          <option value="115200" selected>115200</option>
+        </select>
+      </div>
+      <div>
+        <label for="dataBits">Data Bits:</label>
+        <select id="dataBits">
+          <option value="8" selected>8</option>
+          <option value="7">7</option>
+        </select>
+      </div>
+      <div>
+        <label for="parity">Parity:</label>
+        <select id="parity">
+          <option value="none" selected>None</option>
+          <option value="even">Even</option>
+          <option value="odd">Odd</option>
+        </select>
+      </div>
+      <div>
+        <label for="stopBits">Stop Bits:</label>
+        <select id="stopBits">
+          <option value="1" selected>1</option>
+          <option value="2">2</option>
+        </select>
+      </div>
+      <div>
+        <label for="flowControl">Flow Control:</label>
+        <select id="flowControl">
+          <option value="none" selected>None</option>
+          <option value="hardware">Hardware</option>
+        </select>
+      </div>
+      <button id="modal-connect-button">Conectar</button>
+    </div>
+  </div>
+  
+  <script>
+    // Variables globales
+    let port = null;
+    let reader = null;
+    let readLoopActive = false;
+    let rawDataBuffer = []; // Buffer de datos recibidos
+    let transmitCounter = 1;
+    
+    // Elementos del DOM
+    const connectionStatus = document.getElementById('connection-status');
+    const receivedDataTextarea = document.getElementById('received-data');
+    const displayModeSelect = document.getElementById('display-mode');
+    const clearReceivedButton = document.getElementById('clear-received');
+    const addTransmitButton = document.getElementById('add-transmit');
+    const transmitContainer = document.getElementById('transmit-container');
+    const openConfigButton = document.getElementById('open-config');
+    const disconnectButton = document.getElementById('disconnect-button');
+    
+    const configModal = document.getElementById('config-modal');
+    const closeConfigModal = document.getElementById('close-config-modal');
+    const modalConnectButton = document.getElementById('modal-connect-button');
+    
+    // Event Listeners
+    openConfigButton.addEventListener('click', () => {
+      configModal.style.display = 'block';
+    });
+    closeConfigModal.addEventListener('click', () => {
+      configModal.style.display = 'none';
+    });
+    window.addEventListener('click', (event) => {
+      if (event.target == configModal) {
+        configModal.style.display = 'none';
+      }
+    });
+    modalConnectButton.addEventListener('click', connect);
+    disconnectButton.addEventListener('click', disconnect);
+    clearReceivedButton.addEventListener('click', clearReceivedData);
+    addTransmitButton.addEventListener('click', addTransmitField);
+    displayModeSelect.addEventListener('change', updateDisplayFormat);
+    
+    // Añadir listeners a los botones de envío y selectores del campo inicial
+    document.querySelectorAll('.send-button').forEach(button => {
+      button.addEventListener('click', sendData);
+    });
+    document.querySelectorAll('.format-select').forEach(select => {
+      select.addEventListener('change', handleFormatChange);
+    });
+    
+    // Actualiza la visibilidad de los botones de eliminación en los campos de transmisión
+    function updateRemoveButtons() {
+      const transmitFields = document.querySelectorAll('.transmit-input');
+      transmitFields.forEach(field => {
+        const removeBtn = field.querySelector('.remove-transmit');
+        removeBtn.style.display = (transmitFields.length > 1) ? 'block' : 'none';
+      });
+    }
+    updateRemoveButtons();
+    
+    // Conectar usando la configuración del modal
+    async function connect() {
+      try {
+        if (!('serial' in navigator)) {
+          throw new Error('La API Web Serial no está soportada en este navegador.');
+        }
+        // Obtener configuración
+        const baudRate = parseInt(document.getElementById('baudrate').value);
+        const dataBits = parseInt(document.getElementById('dataBits').value);
+        const parity = document.getElementById('parity').value;
+        const stopBits = parseInt(document.getElementById('stopBits').value);
+        const flowControl = document.getElementById('flowControl').value === 'hardware';
+        
+        // Solicitar y abrir el puerto
+        port = await navigator.serial.requestPort();
+        await port.open({
+          baudRate: baudRate,
+          dataBits: dataBits,
+          parity: parity,
+          stopBits: stopBits,
+          flowControl: flowControl ? "hardware" : "none"
+        });
+        
+        // Actualizar interfaz
+        openConfigButton.disabled = true;
+        disconnectButton.disabled = false;
+        connectionStatus.textContent = 'Estado: Conectado';
+        connectionStatus.classList.remove('disconnected');
+        connectionStatus.classList.add('connected');
+        
+        // Cerrar modal y limpiar buffer
+        configModal.style.display = 'none';
+        rawDataBuffer = [];
+        startReadLoop();
+      } catch (error) {
+        console.error('Error al conectar:', error);
+        alert(`Error al conectar: ${error.message}`);
+      }
+    }
+    
+    // Desconectar
+    async function disconnect() {
+      try {
+        if (port) {
+          readLoopActive = false;
+          if (reader) await reader.cancel();
+          await port.close();
+          port = null;
+          
+          openConfigButton.disabled = false;
+          disconnectButton.disabled = true;
+          connectionStatus.textContent = 'Estado: Desconectado';
+          connectionStatus.classList.remove('connected');
+          connectionStatus.classList.add('disconnected');
+        }
+      } catch (error) {
+        console.error('Error al desconectar:', error);
+        alert(`Error al desconectar: ${error.message}`);
+      }
+    }
+    
+    // Bucle de lectura del puerto
+    async function startReadLoop() {
+      try {
+        readLoopActive = true;
+        reader = port.readable.getReader();
+        while (readLoopActive) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            for (const byte of value) rawDataBuffer.push(byte);
+            displayReceivedData(value);
+          }
+        }
+        reader.releaseLock();
+      } catch (error) {
+        console.error('Error en el bucle de lectura:', error);
+        if (reader) reader.releaseLock();
+        await disconnect();
+      }
+    }
+    
+    // Actualiza la visualización según el modo seleccionado
+    function updateDisplayFormat() {
+      if (rawDataBuffer.length === 0) return;
+      const allData = new Uint8Array(rawDataBuffer);
+      receivedDataTextarea.value = '';
+      displayFormattedData(allData, displayModeSelect.value);
+    }
+    
+    function displayReceivedData(data) {
+      displayFormattedData(data, displayModeSelect.value);
+    }
+    
+    function displayFormattedData(data, mode) {
+      let displayText = '';
+      switch (mode) {
+        case 'text':
+          displayText = new TextDecoder().decode(data);
+          break;
+        case 'textWithSpecial':
+          const text = new TextDecoder().decode(data);
+          displayText = Array.from(text).map(char => {
+            const code = char.charCodeAt(0);
+            return (code < 32 || code > 126) ? `[${code.toString(16).padStart(2, '0')}]` : char;
+          }).join('');
+          break;
+        case 'hex':
+          displayText = Array.from(data).map(byte => byte.toString(16).padStart(2, '0')).join(' ');
+          break;
+      }
+      receivedDataTextarea.value += displayText;
+      receivedDataTextarea.scrollTop = receivedDataTextarea.scrollHeight;
+    }
+    
+    function clearReceivedData() {
+      receivedDataTextarea.value = '';
+      rawDataBuffer = [];
+    }
+    
+    // Conversión de formatos en los campos de transmisión
+    function handleFormatChange(event) {
+      const select = event.target;
+      const transmitDiv = select.closest('.transmit-input');
+      const textarea = transmitDiv.querySelector('textarea');
+      const errorMessage = transmitDiv.querySelector('.error-message');
+      const currentText = textarea.value.trim();
+      if (!currentText) return;
+      const newFormat = select.value;
+      const oldFormat = newFormat === 'text' ? 'hex' : 'text';
+      try {
+        if (newFormat === 'text' && oldFormat === 'hex') {
+          const hexValues = currentText.replace(/\s+/g, '').match(/.{1,2}/g) || [];
+          for (const hex of hexValues) {
+            if (!/^[0-9A-Fa-f]{2}$/.test(hex)) throw new Error(`Valor hexadecimal inválido: ${hex}`);
+          }
+          const bytes = new Uint8Array(hexValues.map(hex => parseInt(hex, 16)));
+          textarea.value = new TextDecoder().decode(bytes);
+        } else if (newFormat === 'hex' && oldFormat === 'text') {
+          const bytes = new TextEncoder().encode(currentText);
+          textarea.value = Array.from(bytes).map(byte => byte.toString(16).padStart(2, '0')).join(' ');
+        }
+        errorMessage.style.display = 'none';
+        errorMessage.textContent = '';
+      } catch (error) {
+        console.error('Error al convertir formato:', error);
+        errorMessage.textContent = `Error: ${error.message}`;
+        errorMessage.style.display = 'block';
+        select.value = oldFormat;
+      }
+    }
+    
+    // Añadir un nuevo campo de transmisión
+    function addTransmitField() {
+      transmitCounter++;
+      const newTransmitDiv = document.createElement('div');
+      newTransmitDiv.className = 'transmit-input';
+      newTransmitDiv.id = `transmit-input-${transmitCounter}`;
+      newTransmitDiv.innerHTML = `
+        <div style="flex-grow: 1;">
+          <textarea placeholder="Escribe el mensaje a enviar"></textarea>
+          <div class="error-message"></div>
+        </div>
+        <div class="transmit-options">
+          <div>
+            <label>Formato:</label>
+            <select class="format-select">
+              <option value="text">Texto</option>
+              <option value="hex">Hexadecimal</option>
+            </select>
+          </div>
+          <div>
+            <label><input type="checkbox" class="cr-checkbox"> Añadir CR (\\r)</label>
+          </div>
+          <div>
+            <label><input type="checkbox" class="lf-checkbox"> Añadir LF (\\n)</label>
+          </div>
+          <div>
+            <label><input type="checkbox" class="echo-checkbox"> Echo local</label>
+          </div>
+          <button class="send-button">Enviar</button>
+          <button class="remove-transmit">Eliminar</button>
+        </div>
+      `;
+      transmitContainer.appendChild(newTransmitDiv);
+      newTransmitDiv.querySelector('.send-button').addEventListener('click', sendData);
+      newTransmitDiv.querySelector('.format-select').addEventListener('change', handleFormatChange);
+      newTransmitDiv.querySelector('.remove-transmit').addEventListener('click', () => {
+        transmitContainer.removeChild(newTransmitDiv);
+        updateRemoveButtons();
+      });
+      updateRemoveButtons();
+    }
+    
+    // Enviar datos según el campo de transmisión
+    async function sendData(event) {
+      try {
+        if (!port || !port.writable) {
+          alert('No hay conexión activa.');
+          return;
+        }
+        const transmitDiv = event.target.closest('.transmit-input');
+        const textarea = transmitDiv.querySelector('textarea');
+        const formatSelect = transmitDiv.querySelector('.format-select');
+        const crCheckbox = transmitDiv.querySelector('.cr-checkbox');
+        const lfCheckbox = transmitDiv.querySelector('.lf-checkbox');
+        const echoCheckbox = transmitDiv.querySelector('.echo-checkbox');
+        const errorMessage = transmitDiv.querySelector('.error-message');
+        errorMessage.style.display = 'none';
+        let text = textarea.value;
+        const format = formatSelect.value;
+        if (format === 'hex' && !isValidHex(text)) {
+          errorMessage.textContent = 'Error: Formato hexadecimal inválido. Use pares de caracteres hexadecimales (00-FF).';
+          errorMessage.style.display = 'block';
+          return;
+        }
+        if (crCheckbox.checked) {
+          text += (format === 'text') ? '\r' : ' 0d';
+        }
+        if (lfCheckbox.checked) {
+          text += (format === 'text') ? '\n' : ' 0a';
+        }
+        let dataToSend;
+        if (format === 'text') {
+          dataToSend = new TextEncoder().encode(text);
+        } else {
+          const hexValues = text.replace(/\s+/g, '').match(/.{1,2}/g) || [];
+          dataToSend = new Uint8Array(hexValues.map(hex => parseInt(hex, 16)));
+        }
+        if (echoCheckbox.checked) {
+          const echoPrefix = (format === 'text') ?
+            new TextEncoder().encode(`[TX] `) :
+            new TextEncoder().encode(`[TX HEX] `);
+          for (const byte of echoPrefix) rawDataBuffer.push(byte);
+          for (const byte of dataToSend) rawDataBuffer.push(byte);
+          const newline = new TextEncoder().encode('\n');
+          for (const byte of newline) rawDataBuffer.push(byte);
+          let echoText = (format === 'text') ?
+            `[TX] ${text}\n` :
+            `[TX HEX] ${Array.from(dataToSend).map(b => b.toString(16).padStart(2, '0')).join(' ')}\n`;
+          const mode = displayModeSelect.value;
+          if (mode === 'hex') {
+            const echoBytes = new TextEncoder().encode(echoText);
+            const displayText = Array.from(echoBytes).map(byte => byte.toString(16).padStart(2, '0')).join(' ');
+            receivedDataTextarea.value += displayText;
+          } else if (mode === 'textWithSpecial') {
+            const processedText = Array.from(echoText).map(char => {
+              const code = char.charCodeAt(0);
+              return (code < 32 || code > 126) ? `[${code.toString(16).padStart(2, '0')}]` : char;
+            }).join('');
+            receivedDataTextarea.value += processedText;
+          } else {
+            receivedDataTextarea.value += echoText;
+          }
+          receivedDataTextarea.scrollTop = receivedDataTextarea.scrollHeight;
+        }
+        const writer = port.writable.getWriter();
+        await writer.write(dataToSend);
+        writer.releaseLock();
+      } catch (error) {
+        console.error('Error al enviar datos:', error);
+        alert(`Error al enviar datos: ${error.message}`);
+      }
+    }
+    
+    // Validación del formato hexadecimal
+    function isValidHex(text) {
+      const hexPattern = /^([0-9A-Fa-f]{2}\s*)+$/;
+      return hexPattern.test(text);
+    }
+    
+    // Verificar si la API Web Serial está disponible
+    if (!('serial' in navigator)) {
+      alert('La API Web Serial no está soportada en este navegador. Por favor, usa Chrome o Edge.');
+      openConfigButton.disabled = true;
+    }
+  </script>
+</body>
+</html>
